@@ -1,0 +1,34 @@
+{
+  "name": "tonp2p",
+  "version": "1.0.0",
+  "description": "Agentic Peer to peer trading on ton",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Domanjie",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^1.46.0",
+    "@ton/sandbox": "^0.41.0",
+    "@ton/ton": "^16.2.2",
+    "buffer": "^6.0.3",
+    "dotenv": "^17.3.1",
+    "grammy": "^1.41.1",
+    "knex": "^3.1.0",
+    "mysql": "^2.18.1",
+    "ton-core": "^0.53.0",
+    "ton-crypto": "^3.2.0"
+  },
+  "devDependencies": {
+    "@tact-lang/compiler": "^1.6.13",
+    "@ton/blueprint": "^0.44.0",
+    "@ton/test-utils": "^0.12.0",
+    "@types/jest": "^30.0.0",
+    "ts-jest": "^29.4.6"
+  },
+  "workspaces": [
+    "contract-src"
+  ]
+}

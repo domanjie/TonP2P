@@ -1,0 +1,600 @@
+#pragma version =0.4.6;
+#pragma allow-post-modification;
+#pragma compute-asm-ltr;
+
+;; P2PFactory_P2PFactory.headers.fc
+;;
+;; Header files for P2PFactory
+;; NOTE: declarations are sorted for optimal order
+;;
+
+;; __tact_context_get
+(int, slice, int, slice) __tact_context_get() inline;
+
+;; __tact_context_get_sender
+slice __tact_context_get_sender() inline;
+
+;; $DeployOk$_store
+builder $DeployOk$_store(builder build_0, (int) v) inline;
+
+;; $DeployOk$_store_cell
+cell $DeployOk$_store_cell((int) v, builder b) inline;
+
+;; $TradeCreated$_store
+builder $TradeCreated$_store(builder build_0, (slice, slice, slice) v) inline;
+
+;; $TradeCreated$_store_cell
+cell $TradeCreated$_store_cell((slice, slice, slice) v, builder b) inline;
+
+;; $P2PFactory$_store
+builder $P2PFactory$_store(builder build_0, (slice, int) v) inline;
+
+;; $P2PFactory$_load
+(slice, ((slice, int))) $P2PFactory$_load(slice sc_0) inline;
+
+;; $Context$_get_value
+_ $Context$_get_value((int, slice, int, slice) v) inline;
+
+;; $P2PTrade$init$_store
+builder $P2PTrade$init$_store(builder build_0, (int, slice, slice, slice, int) v) inline;
+
+;; $P2PFactory$_contract_init
+(slice, int) $P2PFactory$_contract_init() impure inline;
+
+;; $P2PFactory$_contract_load
+(slice, int) $P2PFactory$_contract_load() impure inline;
+
+;; $P2PFactory$_contract_store
+() $P2PFactory$_contract_store((slice, int) v) impure inline;
+
+;; $Cell$_fun_asSlice
+slice $Cell$_fun_asSlice(cell $self) impure inline;
+
+;; $global_newAddress
+slice $global_newAddress(int $chain, int $hash) impure inline;
+
+;; $global_contractAddressExt
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline;
+
+;; $global_contractAddress
+slice $global_contractAddress((cell, cell) $s) impure inline;
+
+;; $global_emit
+() $global_emit(cell $body) impure inline;
+
+;; $P2PTrade$_init_child
+(cell, cell) $P2PTrade$_init_child(int $id, slice $seller, slice $buyer, slice $arbitrator, int $amount) inline_ref;
+
+;; $MessageParameters$_constructor_bounce_to_value_mode_body
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline;
+
+;; $P2PFactory$_fun_totalTrades
+((slice, int), int) $P2PFactory$_fun_totalTrades((slice, int) $self) impure inline_ref;
+
+;; $P2PFactory$_fun_notify
+((slice, int), ()) $P2PFactory$_fun_notify((slice, int) $self, cell $body) impure inline;
+
+;; $DeployParameters$_constructor_init_value
+((int, cell, int, int, (cell, cell))) $DeployParameters$_constructor_init_value((cell, cell) $init, int $value) inline;
+
+;; $TradeCreated$_constructor_tradeAddress_seller_buyer
+((slice, slice, slice)) $TradeCreated$_constructor_tradeAddress_seller_buyer(slice $tradeAddress, slice $seller, slice $buyer) inline;
+
+;; $DeployOk$_constructor_queryId
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline;
+
+
+;; P2PFactory_P2PFactory.stdlib.fc
+global (int, slice, int, slice) __tact_context;
+global slice __tact_context_sender;
+global cell __tact_child_contract_codes;
+global int __tact_randomized;
+
+(int, slice, int, slice) __tact_context_get() inline {
+    return __tact_context;
+}
+
+slice __tact_context_get_sender() inline {
+    return __tact_context_sender;
+}
+
+builder $global_beginCell() impure asm """
+    NEWC
+""";
+
+int $global_contractHash(cell $code, cell $data) impure asm """
+    s0 PUSH HASHCU // `data` hash
+    s2 PUSH HASHCU // `code` hash
+    SWAP2
+    CDEPTH         // `data` depth
+    SWAP
+    CDEPTH         // `code` depth
+    131380 INT     // (2 << 16) | (1 << 8) | 0x34
+
+    // Group 2: Composition of the Builder
+    NEWC
+    24 STU  // store refs_descriptor | bits_descriptor | data
+    16 STU  // store depth_descriptor for `code`
+    16 STU  // store depth_descriptor for `data`
+    256 STU // store `code` hash
+    256 STU // store `data` hash
+
+    // Group 3: SHA256 hash of the resulting Builder
+    ONE HASHEXT_SHA256
+""";
+
+slice $Slice$_fun_asAddressUnsafe(slice $self) impure asm "NOP";
+
+slice $Cell$_fun_beginParse(cell $self) impure asm """
+    CTOS
+""";
+
+slice $Cell$_fun_asSlice(cell $self) impure inline {
+    var ($self) = $self;
+    return $Cell$_fun_beginParse($self);
+}
+
+cell $Builder$_fun_endCell(builder $self) impure asm """
+    ENDC
+""";
+
+slice $global_newAddress(int $chain, int $hash) impure inline {
+    return $Slice$_fun_asAddressUnsafe($Cell$_fun_asSlice($Builder$_fun_endCell(store_uint(store_int(store_uint($global_beginCell(), 4, 3), $chain, 8), $hash, 256))));
+}
+
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline {
+    int $hash = $global_contractHash($code, $data);
+    return $global_newAddress($chain, $hash);
+}
+
+slice $global_contractAddress((cell, cell) $s) impure inline {
+    var (($s'code, $s'data)) = $s;
+    return $global_contractAddressExt(0, $s'code, $s'data);
+}
+
+int $global_myBalance() impure asm """
+    BALANCE FIRST
+""";
+
+() $global_nativeReserve(int $amount, int $mode) impure asm """
+    RAWRESERVE
+""";
+
+() $global_message((int, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    106 PUSHINT         // 1 + 4 + 4 + 64 + 32 + 1
+    STZEROES
+    // → Stack state
+    // s0: Builder
+    // s1: `body`
+    // s2: `mode`
+    STDICT
+    ENDC
+    SWAP
+    SENDRAWMSG
+""";
+
+() $global_deploy((int, cell, int, int, (cell, cell)) $params) impure asm """
+    4 1 BLKPUSH // pushes 2 copies of `init.code` and `init.data`
+    HASHCU // `init.data` hash
+    SWAP
+    HASHCU // `init.code` hash
+    SWAP2
+    CDEPTH // `init.data` depth
+    SWAP
+    CDEPTH // `init.code` depth
+
+    // Group 2: Calculating destination address
+    // For almost identical logic and instructions,
+    // see comments inside `contractHash()` function in contract.tact
+    131380 INT // (2 << 16) | (1 << 8) | 0x34
+    NEWC
+    24 STU
+    16 STU
+    16 STU
+    256 STU
+    256 STU
+    ONE HASHEXT_SHA256 // obtains hash part (account id) of the address
+    // → Stack state
+    // s0: destAddr(hash part)
+    // s1: `init.data`
+    // s2: `init.code`
+    // s3 and below: `bounce`, `value`, `body`, `mode`
+
+    // Group 3: Building a message (CommonMsgInfoRelaxed)
+    s3 XCHG0           // swaps `bounce` with destAddr(hash part)
+    NEWC
+    b{01} STSLICECONST // store tag = $0 and ihr_disabled = true
+    1 STI              // store `bounce`
+    s1 s2 XCHG         // swap `init.data` with `init.code`, placing code on s1
+    STREF              // store `init.code`
+    STREF              // store `init.data`
+    // Inline StateInit:
+    b{00010000000000} STSLICECONST
+    // 0 + 00 + 10 + 0 + 00000000
+    // 1) 0 - bounced = false
+    // 2) 00 - src = addr_none
+    // 3) 10 - tag of addr_std (part of dest)
+    // 4) 0 - Maybe Anycast = false
+    // 5) 00000000 - workchain_id (part of dest)
+    //
+    256 STU     // store destAddr(hash part)
+    SWAP        // Builder on top, `value` below
+    STGRAMS     // store `value`
+    105 PUSHINT // 1 + 4 + 4 + 64 + 32
+    STZEROES    // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+
+    // Group 4: Continue building a message (CommonMsgInfoRelaxed into MessageRelaxed)
+    // Remaining bits of MessageRelaxed:
+    b{1000110} STSLICECONST
+    // 10 + 0 + 0 + 1 + 1 + 0
+    // 10 - Maybe (Either StateInit ^StateInit) = true false
+    // 0 - split_depth:(Maybe (## 5)) = false
+    // 0 = special:(Maybe TickTock) = false
+    // 1 = code:(Maybe ^Cell) = true
+    // 1 = data:(Maybe ^Cell) = true
+    // 0 = library:(Maybe ^Cell) = false
+    //
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC   // finalize the message
+    // → Stack state
+    // s0: Cell
+    // s1: params.`mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG
+""";
+
+() $global_sendRawMessage(cell $msg, int $mode) impure asm """
+    SENDRAWMSG
+""";
+
+builder $Builder$_fun_storeRef(cell $cell, builder $self) impure asm """
+    STREF
+""";
+
+() $global_emit(cell $body) impure inline {
+    cell $c = $Builder$_fun_endCell($Builder$_fun_storeRef($body, store_uint($global_beginCell(), 15211807202738752817960438464513, 104)));
+    $global_sendRawMessage($c, 0);
+}
+
+((slice, int), ()) $P2PFactory$_fun_notify((slice, int) $self, cell $body) impure inline {
+    var (($self'admin, $self'tradeCount)) = $self;
+    slice $to = __tact_context_get_sender();
+    int $bounce = false;
+    if (false) {
+        int $balance = $global_myBalance();
+        int $balanceBeforeMessage = ($balance - $Context$_get_value(__tact_context_get()));
+        if (($balanceBeforeMessage < 0)) {
+            $global_nativeReserve(0, 0);
+            $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 130, $body));
+            return (($self'admin, $self'tradeCount), ());
+        }
+    }
+    $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 66, $body));
+    return (($self'admin, $self'tradeCount), ());
+}
+
+;; P2PFactory_P2PFactory.storage.fc
+;;
+;; Type: Context
+;; TLB: _ bounceable:bool sender:address value:int257 raw:^slice = Context
+;;
+
+_ $Context$_get_value((int, slice, int, slice) v) inline {
+    var (v'bounceable, v'sender, v'value, v'raw) = v;
+    return v'value;
+}
+
+;;
+;; Type: MessageParameters
+;; TLB: _ mode:int257 body:Maybe ^cell value:int257 to:address bounce:bool = MessageParameters
+;;
+
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline {
+    return ($mode, $body, $value, $to, $bounce);
+}
+
+;;
+;; Type: DeployParameters
+;; TLB: _ mode:int257 body:Maybe ^cell value:int257 bounce:bool init:StateInit{code:^cell,data:^cell} = DeployParameters
+;;
+
+((int, cell, int, int, (cell, cell))) $DeployParameters$_constructor_init_value((cell, cell) $init, int $value) inline {
+    return (0, null(), $value, true, $init);
+}
+
+;;
+;; Type: DeployOk
+;; Header: 0xaff90f57
+;; TLB: deploy_ok#aff90f57 queryId:uint64 = DeployOk
+;;
+
+builder $DeployOk$_store(builder build_0, (int) v) inline {
+    var (v'queryId) = v;
+    build_0 = store_uint(build_0, 2952335191, 32);
+    build_0 = build_0.store_uint(v'queryId, 64);
+    return build_0;
+}
+
+cell $DeployOk$_store_cell((int) v, builder b) inline {
+    return $DeployOk$_store(b, v).end_cell();
+}
+
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline {
+    return ($queryId);
+}
+
+;;
+;; Type: TradeCreated
+;; TLB: _ tradeAddress:address seller:address buyer:address = TradeCreated
+;;
+
+builder $TradeCreated$_store(builder build_0, (slice, slice, slice) v) inline {
+    var (v'tradeAddress, v'seller, v'buyer) = v;
+    build_0 = build_0.store_slice(v'tradeAddress);
+    build_0 = build_0.store_slice(v'seller);
+    build_0 = build_0.store_slice(v'buyer);
+    return build_0;
+}
+
+cell $TradeCreated$_store_cell((slice, slice, slice) v, builder b) inline {
+    return $TradeCreated$_store(b, v).end_cell();
+}
+
+((slice, slice, slice)) $TradeCreated$_constructor_tradeAddress_seller_buyer(slice $tradeAddress, slice $seller, slice $buyer) inline {
+    return ($tradeAddress, $seller, $buyer);
+}
+
+;;
+;; Type: P2PTrade
+;; TLB: _ id:uint32 seller:address buyer:address arbitrator:address amount:coins isPaid:bool isDisputed:bool = P2PTrade
+;;
+
+builder $P2PTrade$init$_store(builder build_0, (int, slice, slice, slice, int) v) inline {
+    var (v'id, v'seller, v'buyer, v'arbitrator, v'amount) = v;
+    build_0 = build_0.store_int(v'id, 257);
+    build_0 = build_0.store_slice(v'seller);
+    build_0 = build_0.store_slice(v'buyer);
+    var build_1 = begin_cell();
+    build_1 = build_1.store_slice(v'arbitrator);
+    build_1 = build_1.store_int(v'amount, 257);
+    build_0 = store_builder_ref(build_0, build_1);
+    return build_0;
+}
+
+cell $P2PTrade$_child_get_code() impure asm """
+    B{b5ee9c72010209010002c4000228ff008e88f4a413f4bcf2c80bed5320e303ed43d901020189a6743efb51343480006384b4c7fe903e903e903e803480348015581b05e38820404075c03e903e903500743e9020404075c00c040944090408c1745540dc1c38b6cf1b1c600303f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e12d31ffa40fa40fa40fa00d200d20055606c178e20810101d700fa40fa40d401d0fa40810101d7003010251024102305d155037070e208925f08e07027d74920c21f953107d31f08de21810111bae30221810222bae30221810333ba040506000225005a5f03358155c6f84223c705f2f4103555127f01c87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed5400da5b36811afcf84225c705f2f48200beb026f2f422708100a06d5a6d6d40037fc8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0010465513c87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed5402ec8e345b36368200c241f84224c705917f95f84223c705e2f2f455137fc87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed54e021810444bae302218210946a98b6bae30238c00007c12117b08e1e10465513c87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed54e05f07f2c082070800da5b06d200308170c8f84224c705f2f491229123e2708100a06d5a6d6d40037fc8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0010465513c87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed5400b05b06d33f30c8018210aff90f5758cb1fcb3fc91057104610354430f84270705003804201503304c8cf8580ca00cf8440ce01fa02806acf40f400c901fb00c87f01ca0055605067cb1f14ce12cece01fa02ca00ca00c9ed54} B>boc PUSHREF
+""";
+
+(cell, cell) $P2PTrade$_init_child(int $id, slice $seller, slice $buyer, slice $arbitrator, int $amount) inline_ref {
+    ;; Build init code cell
+
+    ;; Contract Code: P2PTrade
+    cell init_code = $P2PTrade$_child_get_code();
+
+
+    builder b = begin_cell();
+    b = b.store_int(false, 1);
+    b = $P2PTrade$init$_store(b, ($id, $seller, $buyer, $arbitrator, $amount));
+    return (init_code, b.end_cell());
+}
+
+;;
+;; Type: P2PFactory
+;; TLB: _ admin:address tradeCount:uint32 = P2PFactory
+;;
+
+builder $P2PFactory$_store(builder build_0, (slice, int) v) inline {
+    var (v'admin, v'tradeCount) = v;
+    build_0 = build_0.store_slice(v'admin);
+    build_0 = build_0.store_uint(v'tradeCount, 32);
+    return build_0;
+}
+
+(slice, ((slice, int))) $P2PFactory$_load(slice sc_0) inline {
+    var v'admin = sc_0~load_msg_addr();
+    var v'tradeCount = sc_0~load_uint(32);
+    return (sc_0, (v'admin, v'tradeCount));
+}
+
+(slice, int) $P2PFactory$_contract_load() impure inline {
+    slice $sc = get_data().begin_parse();
+    int $loaded = $sc~load_int(1);
+    if ($loaded) {
+        return $sc~$P2PFactory$_load();
+    }
+    else {
+        return $P2PFactory$_contract_init();
+    }
+}
+
+() $P2PFactory$_contract_store((slice, int) v) impure inline {
+    builder b = begin_cell();
+    b = b.store_int(true, 1);
+    b = $P2PFactory$_store(b, v);
+    set_data(b.end_cell());
+}
+
+;;
+;; Contract P2PFactory functions
+;;
+
+(slice, int) $P2PFactory$_contract_init() impure inline {
+    var (($self'admin, $self'tradeCount)) = (null(), 0);
+    $self'admin = __tact_context_get_sender();
+    return ($self'admin, $self'tradeCount);
+}
+
+((slice, int), int) $P2PFactory$_fun_totalTrades((slice, int) $self) impure inline_ref {
+    var (($self'admin, $self'tradeCount)) = $self;
+    var $fresh$ret_3 = $self'tradeCount;
+    return (($self'admin, $self'tradeCount), $fresh$ret_3);
+}
+
+;;
+;; Get methods of a Contract P2PFactory
+;;
+
+_ %totalTrades() method_id(71307) {
+    var self = $P2PFactory$_contract_load();
+    var res = self~$P2PFactory$_fun_totalTrades();
+    return res;
+}
+
+;;
+;; Routing of a Contract P2PFactory
+;;
+
+;; message opcode reader utility: only binary receivers
+;; Returns 32 bit message opcode, otherwise throws the "Invalid incoming message" exit code
+(slice, int) ~load_opcode_internal(slice s) asm( -> 1 0) "32 LDUQ 130 THROWIFNOT";
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    
+    ;; Context
+    var cs = in_msg_cell.begin_parse();
+    cs~skip_bits(2);
+    var msg_bounceable = cs~load_int(1);
+    var msg_bounced = cs~load_int(1);
+    slice msg_sender_addr = cs~load_msg_addr();
+    __tact_context = (msg_bounceable, msg_sender_addr, msg_value, cs);
+    __tact_context_sender = msg_sender_addr;
+    
+    ;; Load contract data
+    var ($self'admin, $self'tradeCount) = $P2PFactory$_contract_load();
+    
+    ;; Handle bounced messages
+    if (msg_bounced) { return (); }
+    int op = 0;
+    int in_msg_length = slice_bits(in_msg);
+    if (in_msg_length >= 32) {
+        op = in_msg~load_uint(32);
+    }
+    ;; Receive CreateTrade message
+    if (op == 0x6a13b5d1) {
+        var $msg'queryId = in_msg~load_uint(64);
+        var $msg'seller = in_msg~load_msg_addr();
+        var $msg'buyer = in_msg~load_msg_addr();
+        var $msg'amount = in_msg~load_varuint16();
+        $self'tradeCount = ($self'tradeCount + 1);
+        var ($init'code, $init'data) = $P2PTrade$_init_child($self'tradeCount, $msg'seller, $msg'buyer, $self'admin, $msg'amount);
+        slice $tradeAddress = $global_contractAddress(($init'code, $init'data));
+        int $deployCost = 50000000;
+        int $gasReserve = 30000000;
+        int $misc = 20000000;
+        int $required = ((($msg'amount + $deployCost) + $gasReserve) + $misc);
+        int $amountToEscrow = ($msg'amount + $deployCost);
+        throw_unless(35407, ($Context$_get_value(__tact_context_get()) >= $required));
+        $global_deploy($DeployParameters$_constructor_init_value(($init'code, $init'data), $amountToEscrow));
+        $global_emit($TradeCreated$_store_cell($TradeCreated$_constructor_tradeAddress_seller_buyer($tradeAddress, $msg'seller, $msg'buyer), begin_cell()));
+        $P2PFactory$_contract_store(($self'admin, $self'tradeCount));
+        return ();
+    }
+    
+    ;; Receive Deploy message
+    if (op == 0x946a98b6) {
+        var $deploy'queryId = in_msg~load_uint(64);
+        ($self'admin, $self'tradeCount)~$P2PFactory$_fun_notify($DeployOk$_store_cell($DeployOk$_constructor_queryId($deploy'queryId), begin_cell()));
+        $P2PFactory$_contract_store(($self'admin, $self'tradeCount));
+        return ();
+    }
+    
+    ;; Receive empty message
+    if ((op == 0) & (in_msg_length <= 32)) {
+        $P2PFactory$_contract_store(($self'admin, $self'tradeCount));
+        return ();
+    }
+    ;; Throw if not handled
+    throw(130);
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+@atend @ 1 {
+        execute current@ context@ current!
+        {
+            // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+            // We want to extract recv_internal/recv_external from the dict and select needed function
+            // not by jumping to the needed function by it's index, but by using usual IF statements.
+
+            }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+
+            <{ // Start of the new code builder
+                SETCP0
+                // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                swap
+                // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                <s ref@
+
+                // Extract the recv_internal from the dict
+                dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                swap
+
+                // Delete the recv_internal from the dict
+                0 swap @procdictkeylen idict- drop
+                // Delete the recv_external from the dict (it's okay if it's not there)
+                -1 swap @procdictkeylen idict- drop
+                // Delete the __tact_selector_hack from the dict
+                65535 swap @procdictkeylen idict- drop
+
+                // Bring the code builder from the bottom of the stack
+                // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                depth 1- roll
+                // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                swap
+
+                // Check if the dict is empty
+                dup null?
+                // Store a copy of this flag in the bottom of the stack
+                dup depth 1- -roll
+                {
+                    // If the dict is empty, just drop it (it will be null if it's empty)
+                    drop
+                }
+                {
+                    // If the dict is not empty, prepare continuation to be stored in c3
+                    <{
+                        // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                        swap @procdictkeylen DICTPUSHCONST
+                        // Jump to the needed function by it's index
+                        DICTIGETJMPZ
+                        // If such key is not found, throw 11 along with the key as an argument
+                        11 THROWARG
+                    }> PUSHCONT
+                    // Store the continuation in c3
+                    c3 POP
+                } cond
+
+                // Function id is on top of the (runtime) stack
+                DUP IFNOTJMP:<{
+                    // place recv_internal here
+                    DROP swap @addop
+                }>
+
+                // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                depth 1- roll
+                {
+                    // If the dict is empty, throw 11
+                    11 THROWARG
+                }
+                {
+                    // If the dict is not empty, jump to continuation from c3
+                    c3 PUSH JMPX
+                } cond
+            }> b>
+        } : }END>c
+        current@ context! current!
+    } does @atend !
+""";
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}
