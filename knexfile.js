@@ -11,11 +11,11 @@ const config = {
   development: {
     client: "mysql",
     connection: {
-    host: process.env.MYSQLHOST,
-      port: process.env.MYSQLPORT,
-      user: process.env.MYSQLUSER,
-      password: process.env.MYSQLPASSWORD,
-      database: process.env.MYSQLDATABASE
+      host: process.env.DB_HOST || "127.0.0.1",
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      port:process.env.DB_PORT|| 3306
     },
     migrations: {
       directory: "./migrations",
