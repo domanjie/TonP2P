@@ -46,6 +46,12 @@ const model = "gemini-2.5-flash"
 // First Turn: Ask the question
 
 export async function parseUserIntent(userText) {
+  const lower = userText.toLowerCase()
+  const hasNumber = /\d+(?:\.\d+)?/.test(userText)
+  if ((lower.includes("sell") || lower.includes("buy")) && lower.includes("ton") && !hasNumber) {
+    return { functionName: null, args: null }
+  }
+
   const response = await genAI.models.generateContent({
     model: model,
     contents: userText,
@@ -60,4 +66,6 @@ export async function parseUserIntent(userText) {
     const args = call.args
     return { functionName, args }
   }
+
+  return { functionName: null, args: null }
 }

@@ -1,9 +1,14 @@
 import { Bot } from "grammy" // High-perf bot framework
-import { Address } from "@ton/ton"
+import { Address, TonClient, beginCell, toNano } from "@ton/ton"
 import { parseUserIntent } from "./agent.js"
 import { db } from "../knexfile.js"
 import { generateEscrowPayload } from "./escrow.js"
 const bot = new Bot(process.env.TG_BOT_KEY)
+
+const tonClient = new TonClient({
+  endpoint: process.env.TON_ENDPOINT,
+  apiKey: process.env.TON_API_KEY,
+})
 
 // bot.command("sell", async (ctx) => {ss
 //   const amount = ctx.match // e.g. /sell 100
@@ -22,6 +27,62 @@ const bot = new Bot(process.env.TG_BOT_KEY)
 //     ctx.reply("Click to Deposit", {
 //       reply_markup: new InlineKeyboard().url("Deposit TON", link),
 //     })
+
+bot.command("balance", async (ctx) => {
+  try {
+    const wallet = await getWalletByTgId(ctx.from.id)
+    if (!wallet) {
+      return await ctx.reply(
+        "⚠️ I don't have your wallet address yet! Please use /setwallet first."
+      )
+    }
+
+    const balance = await  tonClient.getBalance(Address.parse(wallet))
+    const ton = Number(balance) / 1e9
+    return await ctx.reply(`💳 Balance: ${ton.toFixed(4)} TON`)
+  } catch (e) {
+    console.error("/balance error:", e)
+    return await ctx.reply("❌ Could not fetch balance right now. Try again.")
+  }
+})
+
+bot.command("trades", async (ctx) => {
+  try {
+    const tgId = ctx.from.id
+    const sells = await db("sell_intents")
+      .where("user_id", tgId)
+      .andWhereNot("status", "COMPLETED")
+      .select("id", "amount_nanotons", "min_price_usd", "status")
+      .orderBy("updated_at", "desc")
+
+    const buys = await db("buy_orders")
+      .where("user_id", tgId)
+      .andWhereNot("status", "COMPLETED")
+      .select("id", "amount_nanotons", "max_price_usd", "status")
+      .orderBy("updated_at", "desc")
+
+    if (sells.length === 0 && buys.length === 0) {
+      return await ctx.reply("No active deals right now.")
+    }
+
+    let msg = "📌 Active Deals\n\n"
+    for (const s of sells) {
+      msg += `SELL #${s.id} | ${(Number(s.amount_nanotons) / 1e9).toFixed(
+        2
+      )} TON | min $${s.min_price_usd} | [${s.status}]\n`
+    }
+    for (const b of buys) {
+      msg += `BUY #${b.id} | ${(Number(b.amount_nanotons) / 1e9).toFixed(
+        2
+      )} TON | max $${b.max_price_usd} | [${b.status}]\n`
+    }
+
+    return await ctx.reply(msg)
+  } catch (e) {
+    console.error("/trades error:", e)
+    return await ctx.reply("❌ Could not load your trades right now.")
+  }
+})
 //   } else {
 //     openIntents.push({ userId, amount })
 //     ctx.reply("Agent is hunting for a buyer at your price... I'll ping you.")
@@ -126,9 +187,15 @@ bot.command("setwallet", async (ctx) => {
 
     // We store it in "User-Friendly, Non-Bounceable" format
     const friendlyAddress = parsed.toString({
-      bounceable: false,
-      testOnly: true, // Set to false for Mainnet!
+      bounceable: true,
     })
+
+    if (!friendlyAddress.startsWith("EQ")) {
+      return await ctx.reply(
+        "❌ **Invalid Address Type**\nPlease provide a user-friendly address that starts with `EQ...` (Tonkeeper format).",
+        { parse_mode: "Markdown" }
+      )
+    }
 
     //Save to Knex DB
     await db("users")
@@ -154,6 +221,20 @@ bot.command("setwallet", async (ctx) => {
 
 bot.on("message:text", async (ctx) => {
   const userText = ctx.message.text
+
+  const lower = userText.toLowerCase()
+  const hasNumber = /\d+(?:\.\d+)?/.test(userText)
+  if (lower.includes("sell") && lower.includes("ton") && !hasNumber) {
+    return await ctx.reply(
+      "I can help with that! How much TON are you selling, and what is your minimum price per TON?"
+    )
+  }
+  if (lower.includes("buy") && lower.includes("ton") && !hasNumber) {
+    return await ctx.reply(
+      "I can help with that! How much TON are you buying, and what is your maximum price per TON?"
+    )
+  }
+
   try {
     const { functionName, args } = await parseUserIntent(userText)
     switch (functionName) {
@@ -177,15 +258,16 @@ export { bot }
 
 async function executeSellLogic(ctx, args) {
   console.log(args)
+  await db("users").where("tg_id", ctx.from.id).increment("total_orders", 1)
   const match = await findMatchForSeller({
     amount: args.amount * 1e9,
     minPrice: args.minPrice,
-    minCompletionRate: 80,
+    minCompletionRate: 0,
   })
   const sellerWallet = await getWalletByTgId(ctx.from.id)
 
   if (match) {
-    const buyerWallet = match.walletAddress
+    const buyerWallet = match.wallet_address
     const txData = await generateEscrowPayload(
       sellerWallet,
       buyerWallet,
@@ -194,7 +276,9 @@ async function executeSellLogic(ctx, args) {
 
     // Set expiration for 15 minutes from now
     const expiresAt = Math.floor(Date.now() / 1000) + 15 * 60
-    const tonConnectLink = `https://app.tonkeeper.com/transfer/${txData.address}?amount=${txData.amount}&bin=${txData.payload}&exp=${expiresAt}`
+    const tonConnectLink = `ton://transfer/${Address.parse(txData.address).toString({
+      bounceable: true,
+    })}?amount=${txData.amount}&bin=${txData.payload}&exp=${expiresAt}`
     await ctx.reply(
       "Match confirmed! 🚀\n\nTo start the trade, you need to deposit the TON into the secure Escrow contract.",
       {
@@ -213,7 +297,7 @@ async function executeSellLogic(ctx, args) {
       status: "MATCHED",
       min_rep_threshold: 80,
       user_id: ctx.from.id,
-      wallet_address: sellerWallet,
+      wallet_address: Address.parse(sellerWallet).toString({ bounceable: true }),
     })
   } else {
     await db("sell_intents").insert({
@@ -222,7 +306,7 @@ async function executeSellLogic(ctx, args) {
       status: "OPEN",
       min_rep_threshold: 80,
       user_id: ctx.from.id,
-      wallet_address: sellerWallet,
+      wallet_address: Address.parse(sellerWallet).toString({ bounceable: true }),
     })
     ctx.reply(
       `I've set your intent to sell ${args.amount} TON at $${args.minPrice}. I'll ping you when a buyer is found.`
@@ -232,6 +316,7 @@ async function executeSellLogic(ctx, args) {
 
 async function executeBuyLogic(ctx, args) {
   console.log("Buy Args:", args)
+  await db("users").where("tg_id", ctx.from.id).increment("total_orders", 1)
   // args from AI should be: { amount: number, pricePerTon: number }
 
   // 1. Get the buyer's wallet (you can reuse your existing wallet function)
@@ -247,7 +332,7 @@ async function executeBuyLogic(ctx, args) {
   const match = await findMatchForBuyer({
     amount: args.amount * 1e9, // Store in NanoTONs
     pricePerTon: args.pricePerTon,
-    minCompletionRate: 80,
+    minCompletionRate: 0,
   })
 
   if (match) {
@@ -264,7 +349,9 @@ async function executeBuyLogic(ctx, args) {
 
     // Set expiration for 15 minutes
     const expiresAt = Math.floor(Date.now() / 1000) + 15 * 60
-    const tonConnectLink = `https://app.tonkeeper.com/transfer/${txData.address}?amount=${txData.amount}&bin=${txData.payload}&exp=${expiresAt}`
+    const tonConnectLink = `ton://transfer/${Address.parse(txData.address).toString({
+      bounceable: true,
+    })}?amount=${txData.amount}&bin=${txData.payload}&exp=${expiresAt}`
 
     // Update Seller's intent to MATCHED
     await db("sell_intents").where("id", match.id).update({ status: "MATCHED" })
@@ -272,10 +359,10 @@ async function executeBuyLogic(ctx, args) {
     // Insert Buyer's order as MATCHED
     await db("buy_orders").insert({
       amount_nanotons: args.amount * 1e9,
-      price_per_ton: args.pricePerTon,
+      max_price_usd: args.pricePerTon,
       status: "MATCHED",
       user_id: ctx.from.id,
-      wallet_address: buyerWallet,
+      wallet_address: Address.parse(buyerWallet).toString({ bounceable: true }),
     })
 
     // Notify the BUYER (The person running this command)
@@ -305,10 +392,10 @@ async function executeBuyLogic(ctx, args) {
     // --- NO MATCH FOUND ---
     await db("buy_orders").insert({
       amount_nanotons: args.amount * 1e9,
-      price_per_ton: args.pricePerTon,
+      max_price_usd: args.pricePerTon,
       status: "OPEN",
       user_id: ctx.from.id,
-      wallet_address: buyerWallet,
+      wallet_address: Address.parse(buyerWallet).toString({ bounceable: true }),
     })
 
     await ctx.reply(
@@ -322,7 +409,7 @@ async function findMatchForBuyer({ amount, pricePerTon, minCompletionRate }) {
     .join("users", "sell_intents.user_id", "=", "users.tg_id")
     .where("sell_intents.status", "OPEN")
     .andWhere("sell_intents.amount_nanotons", amount)
-    .andWhere("sell_intents.min_price_usd", ">=", pricePerTon)
+    .andWhere("sell_intents.min_price_usd", "<=", pricePerTon)
 
     // THE PERCENTAGE LOGIC
     // If total_orders is 0, we treat them as 100% to let them start trading.
@@ -364,7 +451,7 @@ async function findMatchForSeller({ amount, minPrice, minCompletionRate }) {
     .join("users", "buy_orders.user_id", "=", "users.tg_id")
     .where("buy_orders.status", "OPEN")
     .andWhere("buy_orders.amount_nanotons", amount)
-    .andWhere("buy_orders.price_per_ton", ">=", minPrice)
+    .andWhere("buy_orders.max_price_usd", ">=", minPrice)
 
     // THE PERCENTAGE LOGIC
     // If total_orders is 0, we treat them as 100% to let them start trading.
@@ -393,7 +480,7 @@ async function findMatchForSeller({ amount, minPrice, minCompletionRate }) {
     )
     // Sort by best price, then by highest completion rate, then by most experience
     .orderBy([
-      { column: "buy_orders.price_per_ton", order: "desc" },
+      { column: "buy_orders.max_price_usd", order: "desc" },
       { column: "completion_rate", order: "desc" },
       { column: "users.total_orders", order: "desc" }, // Tie-breaker: 1000 trades beats 1 trade
     ])
@@ -410,3 +497,49 @@ async function getWalletByTgId(sellerTgId) {
 
   return user ? user.wallet_address : null
 }
+
+bot.callbackQuery(/^paid_(\d+)$/, async (ctx) => {
+  const tradeId = Number(ctx.match[1])
+  const trade = await db("sell_intents").where("id", tradeId).first()
+  if (!trade?.escrow_address) {
+    return await ctx.answerCallbackQuery({
+      text: "Escrow not ready yet.",
+      show_alert: true,
+    })
+  }
+  const payload = beginCell().storeUint(0x111, 32).endCell().toBoc()
+  const to = Address.parse(trade.escrow_address).toString({ bounceable: true })
+  const link = `ton://transfer/${to}?amount=${toNano("0.03")}&bin=${payload.toString(
+    "base64"
+  )}`
+
+  await ctx.reply("Mark as paid on-chain:", {
+    reply_markup: {
+      inline_keyboard: [[{ text: "✅ Mark Paid", url: link }]],
+    },
+  })
+  return await ctx.answerCallbackQuery()
+})
+
+bot.callbackQuery(/^release_(\d+)$/, async (ctx) => {
+  const tradeId = Number(ctx.match[1])
+  const trade = await db("sell_intents").where("id", tradeId).first()
+  if (!trade?.escrow_address) {
+    return await ctx.answerCallbackQuery({
+      text: "Escrow not ready yet.",
+      show_alert: true,
+    })
+  }
+  const payload = beginCell().storeUint(0x222, 32).endCell().toBoc()
+  const to = Address.parse(trade.escrow_address).toString({ bounceable: true })
+  const link = `ton://transfer/${to}?amount=${toNano("0.03")}&bin=${payload.toString(
+    "base64"
+  )}`
+
+  await ctx.reply("Release TON from escrow:", {
+    reply_markup: {
+      inline_keyboard: [[{ text: "✅ Release", url: link }]],
+    },
+  })
+  return await ctx.answerCallbackQuery()
+})
