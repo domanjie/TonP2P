@@ -10,7 +10,7 @@ dotenv.config()
 const config = {
   development: {
     client: "mysql2",
-    connection: {
+    connection: process.env.CONNECTION_STRING ||{
       host: process.env.DB_HOST || "127.0.0.1",
       user: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
