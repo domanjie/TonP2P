@@ -1,6 +1,8 @@
 ﻿# TonP2P
 
-TonP2P is a Telegram bot for running simple P2P TON trades using an escrow smart contract. It matches buyers and sellers, generates transaction links, and watches the blockchain to update trade state.
+TonP2P is an agentic Telegram bot for running P2P TON trades using an escrow smart contract. It matches buyers and sellers, generates transaction links, and watches the blockchain to update trade state.
+
+Why this exists: most P2P trades end up stuck in DMs. People negotiate forever, reply late, or intentionally delay. That creates bad fills, wasted time, and a lot of failed trades. This project moves the trade flow into a structured, on-chain escrow process with clear state transitions so deals do not depend on long back-and-forth chat.
 
 Stack:
 - Node.js
@@ -61,6 +63,40 @@ npx knex migrate:latest
 node index.js
 
 The watcher is started from index.js and runs on intervals.
+
+## Deployment
+
+This is a Telegram bot plus a chain watcher. The simplest deployment is to run it as a single long-running Node process with environment variables configured.
+
+Fast options that work well for hackathon submissions:
+
+### Option A: Railway (fastest)
+- Create a new project from this repo
+- Add the environment variables from the Setup section
+- Set the start command to:
+  - `node index.js`
+- Make sure the service is configured as a worker/background process (not a web server)
+
+### Option B: Render
+- Create a new Background Worker
+- Connect the repo
+- Build command:
+  - `npm install`
+- Start command:
+  - `node index.js`
+- Add the environment variables
+
+### Option C: VPS
+- Copy the repo to a Linux VM
+- Install Node.js
+- Create `.env`
+- Run migrations
+- Start the bot with a process manager:
+  - `node index.js`
+
+Your database can be:
+- A managed MySQL instance (Railway/PlanetScale/etc)
+- Or a MySQL server you run on the same VPS
 
 ## Usage in Telegram
 - /start
